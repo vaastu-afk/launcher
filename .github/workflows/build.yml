@@ -1,1 +1,33 @@
-
+name: Build CleanYourTV launcher
+on:
+  workflow_dispatch:
+  push:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+      - name: Download the launcher project
+        run: git clone --depth 1 https://github.com/Gathin23/cleanyourtv src
+      - name: Build the launcher
+        run: |
+          S=$(find src/launcher -maxdepth 3 \( -name settings.gradle -o -name settings.gradle.kts \) | head -1)
+          echo "Gradle project file: $S"
+          cd "$(dirname "$S")"
+          if [ -f ./gradlew ]; then chmod +x ./gradlew && ./gradlew assembleDebug --no-daemon; else gradle assembleDebug --no-daemon; fi
+      - name: Publish APK as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(find src/launcher -name "*.apk" -path "*debug*" | head -1)
+          echo "APK: $APK"
+          cp "$APK" launcher.apk
+          gh release create "launcher-${{ github.run_number }}" launcher.apk --repo "${{ github.repository }}" --title "Launcher build ${{ github.run_number }}" --notes "CleanYourTV launcher (debug build)"
